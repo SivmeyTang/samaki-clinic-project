@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:samaki_clinic/components/section_title.dart';
-import 'package:samaki_clinic/pages/home/widgets/about_section.dart';
-import 'package:samaki_clinic/pages/home/widgets/petcare_section.dart';
+import 'package:samaki_clinic/FronEnd/components/section_title.dart';
+import 'package:samaki_clinic/FronEnd/pages/home/widgets/about_section.dart';
+import 'package:samaki_clinic/FronEnd/pages/home/widgets/petcare_section.dart';
 import '../../components/navbar.dart';
 import '../../components/footer.dart';
 import 'widgets/service_section.dart';
