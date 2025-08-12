@@ -1,4 +1,7 @@
 // AddConsultationScreen.dart
+//
+// FINAL WORKING VERSION
+// The navigation error has been fixed.
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -7,6 +10,7 @@ import 'package:samaki_clinic/BackEnd/Screens/CustomerList_Screen.dart';
 import 'package:samaki_clinic/BackEnd/Screens/daskboard_Screen.dart';
 import 'package:samaki_clinic/BackEnd/logic/CustomerList_provider.dart';
 import 'package:samaki_clinic/BackEnd/logic/consultation_provider.dart';
+import 'dart:developer' as developer; // For printing detailed logs
 
 import '../Model/ConsultationModel.dart';
 import '../Model/CustomerList_Model.dart';
@@ -30,19 +34,16 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
   final _historiesController = TextEditingController();
 
   DateTime _postingDate = DateTime.now();
-
   final List<Map<String, dynamic>> _addedImmunizations = [];
 
-  // --- MODIFIED: State for the dropdown ---
-  final List<String> _immunizationOptions = const [ // <-- ADDED: List of dropdown options
+  final List<String> _immunizationOptions = const [
     'Check-up',
     'Vaccination',
     'Surgery',
     'Emergency',
     'Consultation',
   ];
-  String? _selectedImmunizationType; // <-- ADDED: Holds the selected value
-  // --- END MODIFICATION ---
+  String? _selectedImmunizationType;
 
   DateTime _givenDate = DateTime.now();
   DateTime _nextDueDate = DateTime.now().add(const Duration(days: 30));
@@ -55,7 +56,6 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
   bool _isLoadingPets = false;
 
   PetModel? _displayPetData;
-
   int _currentStep = 0;
 
   @override
@@ -74,7 +74,6 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     _customerNameController.dispose();
     _phoneController.dispose();
     _historiesController.dispose();
-    // _immunizationTypeController.dispose(); // <-- MODIFIED: Controller removed
     super.dispose();
   }
 
@@ -141,17 +140,16 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     }
   }
 
-  // --- MODIFIED: Logic updated to use the dropdown's selected value ---
   void _addCurrentImmunizationToList() {
-    if (_selectedImmunizationType != null) { // <-- MODIFIED: Check the new variable
+    if (_selectedImmunizationType != null) {
       setState(() {
         _addedImmunizations.add({
-          'immunizationType': _selectedImmunizationType!, // <-- MODIFIED: Use the variable
+          'immunizationType': _selectedImmunizationType!,
           'givenDate': _givenDate,
           'nextDueDate': _nextDueDate,
           'notifyDate': _notifyDate,
         });
-        _selectedImmunizationType = null; // <-- MODIFIED: Reset the dropdown
+        _selectedImmunizationType = null;
         _givenDate = DateTime.now();
         _nextDueDate = DateTime.now().add(const Duration(days: 30));
         _notifyDate = DateTime.now().add(const Duration(days: 25));
@@ -160,11 +158,10 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please select an immunization type to add.')), // <-- MODIFIED: Message updated
+            content: Text('Please select an immunization type to add.')),
       );
     }
   }
-  // --- END MODIFICATION ---
 
   void _removeImmunization(int index) {
     setState(() {
@@ -172,23 +169,15 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     });
   }
 
-  // --- MODIFIED: Logic updated to use the dropdown's selected value ---
   Future<void> _submitConsultation() async {
     if (!_formKey.currentState!.validate()) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Please correct the errors before saving.'),
-            backgroundColor: Colors.red),
-      );
       return;
     }
     if (_selectedPets.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a pet.')),
       );
-      setState(() {
-        _currentStep = 0; // Go back to the first step
-      });
+      setState(() => _currentStep = 0);
       return;
     }
 
@@ -197,71 +186,87 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     final List<Map<String, dynamic>> allImmunizationsToSave =
         List.from(_addedImmunizations);
 
-    // --- MODIFIED: Also check the dropdown value before saving ---
-    if (_selectedImmunizationType != null) { // <-- MODIFIED
+    if (_selectedImmunizationType != null) {
       allImmunizationsToSave.add({
-        'immunizationType': _selectedImmunizationType!, // <-- MODIFIED
+        'immunizationType': _selectedImmunizationType!,
         'givenDate': _givenDate,
         'nextDueDate': _nextDueDate,
         'notifyDate': _notifyDate,
       });
     }
-    // --- END MODIFICATION ---
 
     try {
       final provider = Provider.of<ConsultationProvider>(context, listen: false);
       final pet = _selectedPets.first;
 
-      final header = ConsultationHeader(
-          consultId: 0,
-          customerId: _selectedCustomerId ?? 0,
-          customerName: _customerNameController.text,
-          phone: _phoneController.text,
-          petName: pet.petName,
-          species: pet.species,
-          breed: pet.breed,
-          gender: pet.gender,
-          postingDate: _postingDate,
-          historiesTreatment: _historiesController.text,
-          createDate: DateTime.now(),
-          petId: pet.petId);
+      final consultation = ConsultationModel(
+        header: ConsultationHeader(
+            consultId: 0,
+            customerId: _selectedCustomerId ?? 0,
+            customerName: _customerNameController.text,
+            phone: _phoneController.text,
+            petName: pet.petName,
+            species: pet.species,
+            breed: pet.breed,
+            gender: pet.gender,
+            postingDate: _postingDate,
+            historiesTreatment: _historiesController.text,
+            createDate: DateTime.now(),
+            petId: pet.petId),
+        detail: allImmunizationsToSave
+            .map((immun) => ImmunizationDetail(
+                  immunId: 0,
+                  consultId: 0,
+                  immunizationType: immun['immunizationType'],
+                  givenDate: immun['givenDate'],
+                  nextDueDate: immun['nextDueDate'],
+                  notifyDate: immun['notifyDate'],
+                ))
+            .toList(),
+      );
 
-      final details = allImmunizationsToSave
-          .map((immun) => ImmunizationDetail(
-                immunId: 0,
-                consultId: 0,
-                immunizationType: immun['immunizationType'],
-                givenDate: immun['givenDate'],
-                nextDueDate: immun['nextDueDate'],
-                notifyDate: immun['notifyDate'],
-              ))
-          .toList();
-
-      final consultation = ConsultationModel(header: header, detail: details);
       final result = await provider.service.saveConsultation(consultation);
 
       if (mounted) {
-        if (result != null && result['success'] == true) {
-          await provider.fetchConsultations();
+        if (result != null && result['success'] != false) {
+          // SUCCESS PATH
+          await provider.fetchConsultations(); // Refresh data in the background
 
-          Navigator.pushAndRemoveUntil(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const DashboardPage(initialIndex: 2),
-            ),
-            (route) => false,
-          );
-        } else {
           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(result?['message'] ?? 'Failed to save.'),
+            content: Text(result['message'] ?? 'Saved successfully!'),
+            backgroundColor: Colors.green,
+          ));
+
+          // ✅ FIX: Replaced complex navigation with a simple pop() to close the screen.
+          // This is the correct way to close a form with a modern router.
+          Navigator.pop(context, true);
+
+        } else {
+          // FAILURE PATH
+          developer.log(
+            'API reported a failure. Server Response: $result',
+            name: 'AddConsultationScreen',
+          );
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+                result?['message'] ?? 'Failed to save. See debug console.'),
             backgroundColor: Colors.red,
           ));
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // EXCEPTION PATH
+      developer.log(
+        'CRITICAL ERROR: The API call threw an exception.',
+        name: 'AddConsultationScreen',
+        error: e,
+        stackTrace: stackTrace,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          const SnackBar(
+              content: Text('An error occurred. Please check the debug console for details.'),
+              backgroundColor: Colors.red),
         );
       }
     } finally {
@@ -459,7 +464,6 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
     );
   }
 
-  // --- MODIFIED: Replaced TextFormField with DropdownButtonFormField ---
   Widget _buildStep3Content() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -469,7 +473,6 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
         Text('Add New Record',
             style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
-        // --- THIS IS THE KEY CHANGE ---
         DropdownButtonFormField<String>(
           value: _selectedImmunizationType,
           isExpanded: true,
@@ -490,10 +493,7 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
               _selectedImmunizationType = newValue;
             });
           },
-          // You can add a validator if it's a required field
-          // validator: (value) => value == null ? 'Please select a type' : null,
         ),
-        // --- END OF THE KEY CHANGE ---
         const SizedBox(height: 12),
         _buildDateField('Given Date', _givenDate, (newDate) {
           setState(() => _givenDate = newDate);
@@ -529,7 +529,6 @@ class _AddConsultationScreenState extends State<AddConsultationScreen> {
       ],
     );
   }
-  // --- END MODIFICATION ---
 
   Widget _buildSelectedPetData(PetModel pet) {
     return Container(

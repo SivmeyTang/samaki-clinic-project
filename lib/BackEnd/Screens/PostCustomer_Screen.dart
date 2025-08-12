@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:samaki_clinic/BackEnd/Screens/daskboard_Screen.dart';
 import 'package:samaki_clinic/BackEnd/logic/CustomerList_provider.dart';
-
 import '../Model/customer_add_model.dart';
 import '../logic/customer_add_provider.dart';
 
@@ -102,78 +101,75 @@ class _AddNewCustomerScreenState extends State<AddNewCustomerScreen> {
   }
 
   void _submit() async {
-    // 1. Validate all forms on both pages
-    if (!_formKey.currentState!.validate()) {
-      // If validation fails, jump back to the first page to show the error
-      if (_currentPage != 0) {
-        _pageController.jumpToPage(0);
-      }
-      return;
+   // 1. Validate all forms on both pages
+   if (!_formKey.currentState!.validate()) {
+    // If validation fails, jump back to the first page to show the error
+    if (_currentPage != 0) {
+      _pageController.jumpToPage(0);
     }
-    if (petForms.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please add at least one pet."),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
-    // 2. Construct the data model
-    final header = CustomerHeader(
-      customerId: 0, 
-      fullName: _fullNameCtrl.text,
-      title: _titleCtrl.text,
-      email: _emailCtrl.text,
-      phone: _phoneCtrl.text,
-      address: _selectedProvince ?? '',
-      createDate: DateTime.now(),
+    return;
+   }
+   if (petForms.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("Please add at least one pet."),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
-
-    final pets = petForms.map((p) => p.toPetDetail()).toList();
-    final model = CustomerRequestModel(header: header, detail: pets);
-    
-    // 3. Call the provider to save the data
-    final provider = context.read<CustomerAddProvider>();
-    final success = await provider.addCustomer(model);
-
-    if (!mounted) return;
-
-    // 4. Handle the result
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("🎉 Customer saved successfully!"),
-          backgroundColor: accentColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      
-      // IMPORTANT: Refresh the customer list so the new entry appears.
-      // This calls the `fetchCustomers` method (or similar) on your CustomerProvider.
-      await Provider.of<CustomerProvider>(context, listen: false).fetchCustomers();
-
-      // Navigate to the Dashboard and show the Customer List page.
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(
-          builder: (context) => const DashboardPage(initialIndex: 4),
-        ),
-        (Route<dynamic> route) => false, // This removes all previous screens
-      );
-
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("⚠️ Failed to save customer. Please try again."),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
+    return;
   }
 
+  // 2. Construct the data model
+  final header = CustomerHeader(
+    customerId: 0, 
+    fullName: _fullNameCtrl.text,
+    title: _titleCtrl.text,
+    email: _emailCtrl.text,
+    phone: _phoneCtrl.text,
+    address: _selectedProvince ?? '',
+    createDate: DateTime.now(),
+  );
+
+  final pets = petForms.map((p) => p.toPetDetail()).toList();
+  final model = CustomerRequestModel(header: header, detail: pets);
+  
+  // 3. Call the provider to save the data
+  final provider = context.read<CustomerAddProvider>();
+  final success = await provider.addCustomer(model);
+
+  if (!mounted) return;
+
+  // 4. Handle the result
+  if (success) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("🎉 Customer saved successfully!"),
+        backgroundColor: accentColor,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+    
+    // Refresh the customer list so the new entry appears
+    await Provider.of<CustomerProvider>(context, listen: false).fetchCustomers();
+
+    // Navigate back to the Dashboard and show the Customer List page
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => const DashboardPage(initialIndex: 4), // 4 is the index for Customer List
+      ),
+      (route) => false, // This removes all previous screens
+    );
+
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text("⚠️ Failed to save customer. Please try again."),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+}
   @override
   Widget build(BuildContext context) {
     return Scaffold(

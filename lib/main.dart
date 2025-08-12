@@ -7,6 +7,7 @@ import 'package:samaki_clinic/BackEnd/logic/CustomerList_provider.dart';
 import 'package:samaki_clinic/BackEnd/logic/consultation_provider.dart';
 import 'package:samaki_clinic/BackEnd/logic/customer_add_provider.dart';
 import 'package:samaki_clinic/BackEnd/logic/product_provider.dart';
+import 'package:samaki_clinic/FronEnd/models/appointment_page.dart';
 
 import 'package:samaki_clinic/FronEnd/pages/home/home_page.dart';
 import 'package:samaki_clinic/FronEnd/pages/about/about_page.dart';
@@ -52,7 +53,7 @@ final GoRouter _router = GoRouter(
       path: '/appointment',
       builder: (context, state) {
         final from = state.uri.queryParameters['from'];
-        return CreateAppointmentScreen();
+        return AppointmentPage();
       },
     ),
   ],

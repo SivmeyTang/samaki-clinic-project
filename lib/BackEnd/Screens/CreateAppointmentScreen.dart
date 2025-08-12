@@ -3,8 +3,6 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:samaki_clinic/BackEnd/Model/Appointment_model.dart';
 import 'package:samaki_clinic/BackEnd/logic/AppointmentProvider.dart';
-
-
 class CreateAppointmentScreen extends StatefulWidget {
   const CreateAppointmentScreen({super.key});
 
@@ -12,7 +10,6 @@ class CreateAppointmentScreen extends StatefulWidget {
   State<CreateAppointmentScreen> createState() =>
       _CreateAppointmentScreenState();
 }
-
 class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _isSaving = false;
@@ -48,7 +45,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
   /// Handles form validation and submission
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) {
-      return;
+      return; 
     }
 
     setState(() => _isSaving = true);
@@ -60,8 +57,14 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       _selectedTime!.hour,
       _selectedTime!.minute,
     );
-    
+
+    // =======================================================================
+    // === THE FIX IS HERE ===================================================
+    // =======================================================================
+    // Manually format the time to a standard "HH:mm" string (24-hour format)
+    // This ensures the server can always parse it correctly.
     final String formattedTime = '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}';
+
 
     final newAppointment = Appointment(
       fullName: _fullNameController.text,
@@ -70,7 +73,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
       petOfNumber: _selectedPetNumber!,
       species: _selectedSpecies!,
       appointmentDate: finalDateTime,
-      appointmentTime: formattedTime, 
+      appointmentTime: formattedTime, // <-- USE THE CORRECTLY FORMATTED TIME
       appointmentType: _appointmentType!,
       detail: _detailsController.text.isNotEmpty ? _detailsController.text : null,
     );
@@ -185,7 +188,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                 const SizedBox(height: 16),
 
                 _buildLabel("Pet Number"),
-                  DropdownButtonFormField<String>(
+                 DropdownButtonFormField<String>(
                   value: _selectedPetNumber,
                   decoration: _inputDecoration(hint: "Select Pet Number", icon: Icons.tag),
                   items: ['1', '2', '3', '4','5'] // Example list
@@ -201,7 +204,7 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                   controller: _phoneController,
                   decoration: _inputDecoration(hint: "Enter phone number", icon: Icons.phone_outlined),
                   keyboardType: TextInputType.phone,
-                    validator: (v) => v!.trim().isEmpty ? 'Phone is required' : null,
+                   validator: (v) => v!.trim().isEmpty ? 'Phone is required' : null,
                 ),
                 const SizedBox(height: 16),
                 
@@ -220,125 +223,85 @@ class _CreateAppointmentScreenState extends State<CreateAppointmentScreen> {
                   maxLines: 3,
                 ),
                 const SizedBox(height: 16),
-                
-                // =======================================================================
-                // === RESPONSIVE CHANGE #1: Date & Time Fields ==========================
-                // =======================================================================
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    // Use a threshold to decide when to switch from Row to Column
-                    const double breakpoint = 400.0; 
-                    
-                    final dateField = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel("Appointment Date"),
-                        TextFormField(
-                          controller: _dateController,
-                          decoration: _inputDecoration(hint: "Select Date", icon: Icons.calendar_today_outlined),
-                          readOnly: true,
-                          onTap: _pickDate,
-                          validator: (v) => v!.isEmpty ? 'Date is required' : null,
-                        ),
-                      ],
-                    );
 
-                    final timeField = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel("Appointment Time"),
-                        TextFormField(
-                          controller: _timeController,
-                          decoration: _inputDecoration(hint: "Select Time", icon: Icons.access_time_outlined),
-                          readOnly: true,
-                          onTap: _pickTime,
-                          validator: (v) => v!.isEmpty ? 'Time is required' : null,
-                        ),
-                      ],
-                    );
-                    
-                    // If the screen is too narrow, stack them in a Column
-                    if (constraints.maxWidth < breakpoint) {
-                      return Column(
+                // Side-by-side fields
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          dateField,
-                          const SizedBox(height: 16),
-                          timeField,
+                          _buildLabel("Appointment Date"),
+                          TextFormField(
+                            controller: _dateController,
+                            decoration: _inputDecoration(hint: "Select Date", icon: Icons.calendar_today_outlined),
+                            readOnly: true,
+                            onTap: _pickDate,
+                            validator: (v) => v!.isEmpty ? 'Date is required' : null,
+                          ),
                         ],
-                      );
-                    }
-                    
-                    // Otherwise, display them side-by-side in a Row
-                    return Row(
-                      children: [
-                        Expanded(child: dateField),
-                        const SizedBox(width: 16),
-                        Expanded(child: timeField),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel("Appointment Time"),
+                          TextFormField(
+                            controller: _timeController,
+                            decoration: _inputDecoration(hint: "Select Time", icon: Icons.access_time_outlined),
+                            readOnly: true,
+                            onTap: _pickTime,
+                            validator: (v) => v!.isEmpty ? 'Time is required' : null,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
 
-                // =======================================================================
-                // === RESPONSIVE CHANGE #2: Species & Type Fields =======================
-                // =======================================================================
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    const double breakpoint = 400.0;
-                    
-                    final speciesField = Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildLabel("Species"),
-                        DropdownButtonFormField<String>(
-                          value: _selectedSpecies,
-                          decoration: _inputDecoration(hint: "Select Species", icon: Icons.pets_outlined),
-                          items: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Other']
-                              .map((t) => DropdownMenuItem(value: t, child: Text(t)))
-                              .toList(),
-                          onChanged: (v) => setState(() => _selectedSpecies = v),
-                          validator: (v) => v == null ? 'Species is required' : null,
-                        ),
-                      ],
-                    );
-
-                    final typeField = Column(
-                       crossAxisAlignment: CrossAxisAlignment.start,
-                       children: [
-                          _buildLabel("Appointment Type"),
+                 Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildLabel("Species"),
                           DropdownButtonFormField<String>(
-                            value: _appointmentType,
-                            decoration: _inputDecoration(hint: "Select Type", icon: Icons.category_outlined),
-                            items: ['Check-up', 'Vaccination', 'Surgery', 'Emergency', 'Consultation']
+                            value: _selectedSpecies,
+                            decoration: _inputDecoration(hint: "Select Species", icon: Icons.pets_outlined),
+                            items: ['Dog', 'Cat', 'Bird', 'Rabbit', 'Other']
                                 .map((t) => DropdownMenuItem(value: t, child: Text(t)))
                                 .toList(),
-                            onChanged: (v) => setState(() => _appointmentType = v),
-                            validator: (v) => v == null ? 'Type is required' : null,
+                            onChanged: (v) => setState(() => _selectedSpecies = v),
+                            validator: (v) => v == null ? 'Species is required' : null,
                           ),
-                       ],
-                    );
-
-                    if (constraints.maxWidth < breakpoint) {
-                      return Column(
-                        children: [
-                          speciesField,
-                          const SizedBox(height: 16),
-                          typeField,
                         ],
-                      );
-                    }
-                    
-                    return Row(
-                      children: [
-                        Expanded(child: speciesField),
-                        const SizedBox(width: 16),
-                        Expanded(child: typeField),
-                      ],
-                    );
-                  },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                           _buildLabel("Appointment Type"),
+                           DropdownButtonFormField<String>(
+                              value: _appointmentType,
+                              decoration: _inputDecoration(hint: "Select Type", icon: Icons.category_outlined),
+                              items: ['Check-up', 'Vaccination', 'Surgery', 'Emergency', 'Consultation']
+                                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                                  .toList(),
+                              onChanged: (v) => setState(() => _appointmentType = v),
+                              validator: (v) => v == null ? 'Type is required' : null,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                
+               
                 const SizedBox(height: 32),
                 _buildSubmitButton(),
               ],

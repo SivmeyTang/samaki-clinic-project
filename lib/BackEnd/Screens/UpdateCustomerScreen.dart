@@ -4,7 +4,6 @@ import 'package:samaki_clinic/BackEnd/Model/CustomerList_Model.dart';
 import 'package:samaki_clinic/BackEnd/Model/customer_add_model.dart';
 import 'package:samaki_clinic/BackEnd/logic/CustomerUpdateProvider.dart';
 
-
 class UpdateCustomerScreen extends StatefulWidget {
   final CustomerModel customer;
 

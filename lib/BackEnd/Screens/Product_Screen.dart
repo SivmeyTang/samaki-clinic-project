@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-
-import 'package:intl/intl.dart';
-import 'dart:async';
-import 'package:data_table_2/data_table_2.dart';
 import 'package:samaki_clinic/BackEnd/Model/Product_Model.dart';
 import 'package:samaki_clinic/BackEnd/Screens/PostProductForm_Screen.dart';
 import 'package:samaki_clinic/BackEnd/Screens/UpdateProductForm.dart';
 import 'package:samaki_clinic/BackEnd/logic/product_provider.dart';
 
+import 'package:intl/intl.dart';
+import 'dart:async';
+import 'package:data_table_2/data_table_2.dart';
+
 class ProductListView extends StatefulWidget {
-  const ProductListView({super.key});
+  // NEW: Add a flag to determine the mode of the screen.
+  final bool isSelectionMode;
+
+  const ProductListView({super.key, this.isSelectionMode = false});
 
   @override
   State<ProductListView> createState() => _ProductListViewState();
@@ -23,7 +26,10 @@ class _ProductListViewState extends State<ProductListView> {
   @override
   void initState() {
     super.initState();
-    Provider.of<ProductProvider>(context, listen: false).fetchProducts();
+    // Use addPostFrameCallback to ensure context is ready.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Provider.of<ProductProvider>(context, listen: false).fetchProducts();
+    });
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -45,7 +51,6 @@ class _ProductListViewState extends State<ProductListView> {
     });
   }
 
-  // NEW: Helper function to show the full description in a dialog.
   Future<void> _showFullDescriptionDialog(
       BuildContext context, String description) async {
     return showDialog<void>(
@@ -84,7 +89,8 @@ class _ProductListViewState extends State<ProductListView> {
   }
 
   List<DataColumn> _buildDataColumns(ProductProvider provider) {
-    return [
+    // Start with the base columns
+    List<DataColumn> columns = [
       DataColumn2(
         label: _buildHeaderText('Code'),
         onSort: (columnIndex, ascending) => provider.sort('code'),
@@ -131,8 +137,14 @@ class _ProductListViewState extends State<ProductListView> {
         label: _buildHeaderText('Expiry'),
         onSort: (columnIndex, ascending) => provider.sort('expireDate'),
       ),
-      const DataColumn2(label: Text('Actions')),
     ];
+
+    // NEW: Conditionally add the 'Actions' column if not in selection mode
+    if (!widget.isSelectionMode) {
+      columns.add(const DataColumn2(label: Text('Actions')));
+    }
+
+    return columns;
   }
 
   List<DataRow> _buildDataRows(
@@ -155,7 +167,14 @@ class _ProductListViewState extends State<ProductListView> {
       final isLowStock = (product.qty ?? 0) < 10;
       final descriptionText = product.description ?? 'N/A';
 
-      return DataRow(
+      // Use DataRow2 to get the onTap callback
+      return DataRow2(
+        // NEW: If in selection mode, tapping the row pops the screen with the product data
+        onTap: widget.isSelectionMode
+            ? () {
+                Navigator.of(context).pop(product);
+              }
+            : null,
         color: MaterialStateProperty.resolveWith<Color?>(
           (states) => paginatedProducts.indexOf(product) % 2 == 0
               ? Colors.white
@@ -168,7 +187,6 @@ class _ProductListViewState extends State<ProductListView> {
               style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 13),
             ),
           ),
-          // MODIFIED: DataCell for Description is now clickable and truncated.
           DataCell(
             InkWell(
               onTap: () => _showFullDescriptionDialog(context, descriptionText),
@@ -179,9 +197,8 @@ class _ProductListViewState extends State<ProductListView> {
                   child: Text(
                     descriptionText,
                     style: const TextStyle(fontSize: 13),
-                    maxLines: 2, // Limit to 2 lines
-                    overflow:
-                        TextOverflow.ellipsis, // Add '...' if it overflows
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ),
@@ -257,94 +274,84 @@ class _ProductListViewState extends State<ProductListView> {
               ),
             ),
           ),
-          DataCell(
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  icon: Icon(
-                    Icons.edit_outlined,
-                    size: 20,
-                    color: Colors.blue.shade600,
+          // NEW: Conditionally show the actions cell
+          if (!widget.isSelectionMode)
+            DataCell(
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: Icon(
+                      Icons.edit_outlined,
+                      size: 20,
+                      color: Colors.blue.shade600,
+                    ),
+                    tooltip: 'Edit',
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              UpdateProductForm(product: product),
+                        ),
+                      );
+                    },
                   ),
-                  tooltip: 'Edit',
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            UpdateProductForm(product: product),
-                      ),
-                    );
-                  },
-                ),
-                IconButton(
-                  icon: Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: Colors.red.shade600,
+                  IconButton(
+                    icon: Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: Colors.red.shade600,
+                    ),
+                    tooltip: 'Delete',
+                    onPressed: () {
+                      _showDeleteConfirmationDialog(
+                        context,
+                        product.productId,
+                        provider,
+                      );
+                    },
                   ),
-                  tooltip: 'Delete',
-                  onPressed: () {
-                    _showDeleteConfirmationDialog(
-                      context,
-                      product.productId,
-                      provider,
-                    );
-                  },
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
         ],
       );
     }).toList();
   }
 
+  // Helper methods (_getStatusColor, _getStatusBorderColor, _getStatusTextColor) remain the same...
   Color _getStatusColor(String? status) {
     switch (status?.toLowerCase()) {
-      case 'active':
-        return Colors.green.shade50;
-      case 'inactive':
-        return Colors.orange.shade50;
-      case 'expired':
-        return Colors.red.shade50;
-      default:
-        return Colors.grey.shade50;
+      case 'active': return Colors.green.shade50;
+      case 'inactive': return Colors.orange.shade50;
+      case 'expired': return Colors.red.shade50;
+      default: return Colors.grey.shade50;
     }
   }
 
   Color _getStatusBorderColor(String? status) {
     switch (status?.toLowerCase()) {
-      case 'active':
-        return Colors.green.shade100;
-      case 'inactive':
-        return Colors.orange.shade100;
-      case 'expired':
-        return Colors.red.shade100;
-      default:
-        return Colors.grey.shade200;
+      case 'active': return Colors.green.shade100;
+      case 'inactive': return Colors.orange.shade100;
+      case 'expired': return Colors.red.shade100;
+      default: return Colors.grey.shade200;
     }
   }
 
   Color _getStatusTextColor(String? status) {
     switch (status?.toLowerCase()) {
-      case 'active':
-        return Colors.green.shade800;
-      case 'inactive':
-        return Colors.orange.shade800;
-      case 'expired':
-        return Colors.red.shade800;
-      default:
-        return Colors.grey.shade800;
+      case 'active': return Colors.green.shade800;
+      case 'inactive': return Colors.orange.shade800;
+      case 'expired': return Colors.red.shade800;
+      default: return Colors.grey.shade800;
     }
   }
 
   Widget _buildPaginationControls(ProductProvider provider) {
     final canGoBack = provider.currentPage > 0;
     final canGoForward =
-        provider.currentPage < provider.totalPages - 1 &&
-            provider.totalPages > 0;
+        provider.currentPage < provider.totalPages - 1 && provider.totalPages > 0;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
@@ -421,7 +428,8 @@ class _ProductListViewState extends State<ProductListView> {
     );
   }
 
-  Widget _buildLoadingState() {
+  // Other helper methods (_buildLoadingState, _buildErrorState, etc.) remain the same...
+    Widget _buildLoadingState() {
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -517,7 +525,6 @@ class _ProductListViewState extends State<ProductListView> {
             OutlinedButton(
               onPressed: () {
                 _searchController.clear();
-                // This will trigger the listener and clear the search
               },
               style: OutlinedButton.styleFrom(
                 side: BorderSide(color: Colors.blue.shade400),
@@ -609,6 +616,14 @@ class _ProductListViewState extends State<ProductListView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
+      // NEW: Added an AppBar that changes based on the mode
+      appBar: AppBar(
+        leading: Icon(Icons.pets),
+        title: Text(
+            widget.isSelectionMode ? 'Select Product' : 'Product Inventory'),
+        backgroundColor: Colors.white,
+        elevation: 1,
+      ),
       body: Consumer<ProductProvider>(
         builder: (context, provider, child) {
           return Column(
@@ -647,42 +662,45 @@ class _ProductListViewState extends State<ProductListView> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
-                    ElevatedButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => const PostProductForm(),
+                    // NEW: Conditionally hide the "Add Product" button in selection mode
+                    if (!widget.isSelectionMode) ...[
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => const PostProductForm(),
+                            ),
+                          ).then((value) {
+                            if (value == true) {
+                              provider.fetchProducts();
+                            }
+                          });
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue.shade600,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ).then((value) {
-                          if (value == true) {
-                            provider.fetchProducts();
-                          }
-                        });
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue.shade600,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                         ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add, size: 20, color: Colors.white),
+                            SizedBox(width: 8),
+                            Text(
+                              'Add Product',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ],
                         ),
                       ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.add, size: 20, color: Colors.white),
-                          SizedBox(width: 8),
-                          Text(
-                            'Add Product',
-                            style: TextStyle(color: Colors.white),
-                          ),
-                        ],
-                      ),
-                    ),
+                    ]
                   ],
                 ),
               ),
@@ -719,7 +737,7 @@ class _ProductListViewState extends State<ProductListView> {
                               columnSpacing: 20,
                               horizontalMargin: 16,
                               headingRowHeight: 48,
-                              dataRowHeight: 60, // Increased row height
+                              dataRowHeight: 60,
                               columns: _buildDataColumns(provider),
                               rows: _buildDataRows(
                                 provider.filteredProducts,

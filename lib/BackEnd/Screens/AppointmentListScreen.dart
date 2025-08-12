@@ -1,11 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:data_table_2/data_table_2.dart';
 import 'package:samaki_clinic/BackEnd/Model/Appointment_model.dart';
+import 'package:samaki_clinic/BackEnd/Screens/CreateAppointmentScreen.dart';
 import 'package:samaki_clinic/BackEnd/Screens/EditAppointmentScreen.dart';
 import 'package:samaki_clinic/BackEnd/logic/AppointmentProvider.dart';
 
+// --- IMPORTS FOR EXPORT FUNCTIONALITY ---
+import 'package:excel/excel.dart';
+import 'package:file_saver/file_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
+// --------------------------------------------------------
 
 class AppointmentListScreen extends StatefulWidget {
   const AppointmentListScreen({super.key});
@@ -17,6 +25,9 @@ class AppointmentListScreen extends StatefulWidget {
 class _AppointmentListScreenState extends State<AppointmentListScreen> {
   late final TextEditingController _searchController;
   bool _isSearching = false;
+
+  final List<int> _availableRowsPerPage = const [10, 15, 25, 50, 100];
+  int _rowsPerPage = 10;
 
   @override
   void initState() {
@@ -33,14 +44,119 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
     super.dispose();
   }
 
+  // --- CORRECTED AND IMPROVED EXPORT METHOD ---
+  Future<void> _exportToExcel() async {
+    // 1. Check for storage permission
+    var status = await Permission.storage.status;
+    if (!status.isGranted) {
+      status = await Permission.storage.request();
+    }
+  
+    // Handle case where permission is denied
+    if (!status.isGranted) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Storage permission is required to export data.')),
+        );
+      }
+      return;
+    }
+  
+    final provider = Provider.of<AppointmentProvider>(context, listen: false);
+    final appointments = provider.appointments;
+  
+    if (appointments.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No data to export.')),
+        );
+      }
+      return;
+    }
+  
+    // 2. Create Excel file and sheet
+    final excel = Excel.createExcel();
+    final Sheet sheetObject = excel['Appointments'];
+  
+    // 3. Add Header Row using TextCellValue
+    final List<String> headers = [
+      'Appointment ID', 'Full Name', 'Pet Number', 'Species', 'Appointment Date',
+      'Appointment Time', 'Appointment Type', 'Phone Number', 'Email', 'Status',
+      'Details', 'Created Date', 'Updated Date'
+    ];
+    // Wrap headers in TextCellValue objects for compatibility with the new API
+    sheetObject.appendRow(headers.map((header) => TextCellValue(header)).toList());
+  
+    // Style for the header
+    var headerCellStyle = CellStyle(
+      bold: true,
+      
+      horizontalAlign: HorizontalAlign.Center,
+      verticalAlign: VerticalAlign.Center,
+    );
+  
+    for (var i = 0; i < headers.length; i++) {
+      var cell = sheetObject.cell(CellIndex.indexByColumnRow(columnIndex: i, rowIndex: 0));
+      cell.cellStyle = headerCellStyle;
+    }
+  
+    // 4. Add Data Rows
+    final dateFormatter = DateFormat('yyyy-MM-dd');
+    for (final appointment in appointments) {
+      // Wrap each piece of data in a CellValue object
+      final List<CellValue> row = [
+        TextCellValue(appointment.appointmentId?.toString() ?? 'N/A'),
+        TextCellValue(appointment.fullName ?? 'N/A'),
+        TextCellValue(appointment.petOfNumber ?? 'N/A'),
+        TextCellValue(appointment.species ?? 'N/A'),
+        TextCellValue(appointment.appointmentDate != null ? dateFormatter.format(appointment.appointmentDate!) : 'N/A'),
+        TextCellValue(appointment.appointmentTime ?? 'N/A'),
+        TextCellValue(appointment.appointmentType ?? 'N/A'),
+        TextCellValue(appointment.phoneNumber ?? 'N/A'),
+        TextCellValue(appointment.email ?? 'N/A'),
+        TextCellValue(appointment.status ?? 'N/A'),
+        TextCellValue(appointment.detail ?? 'N/A'),
+        TextCellValue(appointment.createdDate != null ? dateFormatter.format(appointment.createdDate!) : 'N/A'),
+        TextCellValue(appointment.updateDate != null ? dateFormatter.format(appointment.updateDate!) : 'N/A'),
+      ];
+      sheetObject.appendRow(row);
+    }
+  
+    // 5. Save the file
+    final fileBytes = excel.save(); // .save() is the modern API call
+    if (fileBytes != null) {
+      try {
+        String fileName = 'Samaki_Clinic_Appointments_${DateFormat('yyyyMMdd_HHmm').format(DateTime.now())}.xlsx';
+        await FileSaver.instance.saveFile(
+          name: fileName,
+          bytes: Uint8List.fromList(fileBytes),
+          ext: 'xlsx',
+          // Corrected typo from .microsoftExcel to .MICROSOFT_EXCEL
+          mimeType: MimeType.microsoftExcel,
+        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Exported successfully to $fileName')),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error saving file: $e')),
+          );
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        leading: const Icon(Icons.pets),
         title: _isSearching
             ? _buildSearchField()
-            : const Text('Appointments',
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            : const Text('Appointments', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         centerTitle: true,
         elevation: 2,
         shadowColor: Colors.black.withOpacity(0.1),
@@ -55,17 +171,33 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.add, color: Colors.white),
+            tooltip: 'Create Appointment',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => const CreateAppointmentScreen(),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white),
+            tooltip: 'Search',
             onPressed: () {
               setState(() {
                 _isSearching = !_isSearching;
                 if (!_isSearching) {
                   _searchController.clear();
-                  Provider.of<AppointmentProvider>(context, listen: false)
-                      .searchAppointments('');
+                  Provider.of<AppointmentProvider>(context, listen: false).searchAppointments('');
                 }
               });
             },
+          ),
+          IconButton(
+            icon: const Icon(Icons.download, color: Colors.white),
+            tooltip: 'Export to Excel',
+            onPressed: _exportToExcel,
           ),
         ],
       ),
@@ -73,16 +205,13 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
         onRefresh: () async {
           _searchController.clear();
           setState(() => _isSearching = false);
-          await Provider.of<AppointmentProvider>(context, listen: false)
-              .fetchAppointments();
+          await Provider.of<AppointmentProvider>(context, listen: false).fetchAppointments();
         },
         child: Consumer<AppointmentProvider>(
           builder: (context, appointmentProvider, child) {
-            if (appointmentProvider.isLoading &&
-                appointmentProvider.appointments.isEmpty) {
+            if (appointmentProvider.isLoading && appointmentProvider.appointments.isEmpty) {
               return const Center(
-                child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue)),
+                child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.blue)),
               );
             }
 
@@ -90,8 +219,7 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
               return _buildErrorState(context, appointmentProvider);
             }
 
-            if (appointmentProvider.appointments.isEmpty &&
-                _searchController.text.isEmpty) {
+            if (appointmentProvider.appointments.isEmpty && _searchController.text.isEmpty) {
               return _buildEmptyState(context, appointmentProvider);
             }
 
@@ -133,7 +261,6 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
   Widget _buildAppointmentDataView(
       BuildContext context, AppointmentProvider provider) {
     final isSearching = _searchController.text.isNotEmpty;
-    final hasSearchResults = provider.appointments.isNotEmpty;
     final appointmentDataSource =
         _AppointmentDataSource(provider.appointments, context);
 
@@ -142,33 +269,6 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!_isSearching) ...[
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.info_outline, color: Colors.blue.shade600),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      isSearching
-                          ? 'Showing results for "${_searchController.text}"'
-                          : 'Showing all appointments',
-                      style: TextStyle(
-                        color: Colors.blue.shade800,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-          ],
           Expanded(
             child: Card(
               elevation: 3,
@@ -194,101 +294,91 @@ class _AppointmentListScreenState extends State<AppointmentListScreen> {
                     dividerThickness: 0.5,
                   ),
                 ),
-                child: Stack(
-                  children: [
-                    PaginatedDataTable2(
-                      fixedLeftColumns: 1,
-                      rowsPerPage: 10,
-                      showCheckboxColumn: false,
-                      minWidth: 2200,
-                      empty: Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.search_off,
-                                size: 60, color: Colors.grey.shade400),
-                            const SizedBox(height: 16),
-                            Text(
-                              isSearching
-                                  ? 'No results found for "${_searchController.text}"'
-                                  : 'No appointments available',
-                              style: TextStyle(
-                                  fontSize: 16, color: Colors.grey.shade600),
-                            ),
-                            if (isSearching) ...[
-                              const SizedBox(height: 8),
-                              TextButton(
-                                onPressed: () {
-                                  _searchController.clear();
-                                  provider.searchAppointments('');
-                                },
-                                child: const Text('Clear search'),
-                              ),
-                            ],
-                          ],
+                child: PaginatedDataTable2(
+                  rowsPerPage: _rowsPerPage,
+                  availableRowsPerPage: _availableRowsPerPage,
+                  onRowsPerPageChanged: (value) {
+                    setState(() {
+                      _rowsPerPage = value ?? 10;
+                    });
+                  },
+                  fixedLeftColumns: 1,
+                  showCheckboxColumn: false,
+                  minWidth: 2200,
+                  empty: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.search_off,
+                            size: 60, color: Colors.grey.shade400),
+                        const SizedBox(height: 16),
+                        Text(
+                          isSearching
+                              ? 'No results found for "${_searchController.text}"'
+                              : 'No appointments available',
+                          style: TextStyle(
+                              fontSize: 16, color: Colors.grey.shade600),
                         ),
-                      ),
-                      columns: const [
-                        DataColumn(
-                            label: Text('Actions',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('AppointmentId',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('FullName',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Pet_of_Number',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Species',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('AppointmentDate',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('AppointmentTime',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('AppointmentType',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('PhoneNumber',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Email',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Status',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('Detail',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('CreatedDate',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                        DataColumn(
-                            label: Text('UpdateDate',
-                                style: TextStyle(fontWeight: FontWeight.bold))),
-                      ],
-                      source: appointmentDataSource,
-                      columnSpacing: 20,
-                      horizontalMargin: 12,
-                    ),
-                    if (provider.isLoading && hasSearchResults)
-                      Positioned.fill(
-                        child: Container(
-                          color: Colors.black.withOpacity(0.1),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                  Colors.blue.shade600),
-                            ),
+                        if (isSearching) ...[
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () {
+                              _searchController.clear();
+                              provider.searchAppointments('');
+                            },
+                            child: const Text('Clear search'),
                           ),
-                        ),
-                      ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  columns: const [
+                    DataColumn(
+                        label: Text('Actions',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('AppointmentId',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('FullName',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Pet_of_Number',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Species',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('AppointmentDate',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('AppointmentTime',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('AppointmentType',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('PhoneNumber',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Email',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Status',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('Detail',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('CreatedDate',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
+                    DataColumn(
+                        label: Text('UpdateDate',
+                            style: TextStyle(fontWeight: FontWeight.bold))),
                   ],
+                  source: appointmentDataSource,
+                  columnSpacing: 20,
+                  horizontalMargin: 12,
                 ),
               ),
             ),
@@ -451,7 +541,7 @@ class _AppointmentDataSource extends DataTableSource {
               Icons.calendar_today_outlined,
               'Date',
               appointment.appointmentDate != null
-                  ? dateFormatter.format(appointment.appointmentDate)
+                  ? dateFormatter.format(appointment.appointmentDate!)
                   : '',
             ),
             _buildDetailRow(Icons.access_time_outlined, 'Time',
@@ -498,7 +588,7 @@ class _AppointmentDataSource extends DataTableSource {
 
     final dateFormatter = DateFormat('MMM dd, yyyy');
     final formattedDate = appointment.appointmentDate != null
-        ? dateFormatter.format(appointment.appointmentDate)
+        ? dateFormatter.format(appointment.appointmentDate!)
         : 'N/A';
 
     final formattedCreatedDate = appointment.createdDate != null
@@ -596,9 +686,9 @@ class _AppointmentDataSource extends DataTableSource {
           Tooltip(
             message: appointment.detail ?? 'No details',
             child: Text(
-              appointment.detail?.isNotEmpty == true
-                  ? '${appointment.detail!.substring(0, appointment.detail!.length > 15 ? 15 : appointment.detail!.length)}...'
-                  : 'N/A',
+              appointment.detail != null && appointment.detail!.length > 15
+                  ? '${appointment.detail!.substring(0, 15)}...'
+                  : safeText(appointment.detail),
               overflow: TextOverflow.ellipsis,
             ),
           ),

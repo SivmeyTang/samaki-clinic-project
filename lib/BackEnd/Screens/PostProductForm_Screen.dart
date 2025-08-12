@@ -643,7 +643,7 @@ class _PostProductFormState extends State<PostProductForm> {
       ),
       items: const [
         DropdownMenuItem(value: 'Medicines', child: Text('Medicines')),
-        DropdownMenuItem(value: 'Vaccines', child: Text('Vaccines')),
+        DropdownMenuItem(value: 'Service', child: Text('Service')),
         DropdownMenuItem(value: 'Supplies', child: Text('Supplies')),
         DropdownMenuItem(value: 'Vaccines', child: Text('Vaccines')),
         

@@ -1,14 +1,14 @@
+// consultation_provider.dart
+
 import 'package:flutter/material.dart';
 import 'package:samaki_clinic/BackEnd/Model/ConsultationModel.dart';
 import 'package:samaki_clinic/BackEnd/Service/consultation_service.dart';
-
 
 // Enum to define the types of date filters available.
 enum DateFilterType { allTime, today, last7Days, thisMonth, custom }
 
 class ConsultationProvider with ChangeNotifier {
   final ClinicService service = ClinicService();
-  
   List<ConsultationModel> _allConsultations = [];
   List<ConsultationModel> _filteredConsultations = [];
   List<ConsultationModel> get filteredConsultations => _filteredConsultations;
@@ -36,7 +36,8 @@ class ConsultationProvider with ChangeNotifier {
 
     try {
       _allConsultations = await service.fetchConsultations();
-      _allConsultations.sort((a, b) => b.header.createDate.compareTo(a.header.createDate));
+      _allConsultations
+          .sort((a, b) => b.header.createDate.compareTo(a.header.createDate));
       _applyFilters();
     } catch (e) {
       _errorMessage = "Failed to load consultations: ${e.toString()}";
@@ -71,16 +72,22 @@ class ConsultationProvider with ChangeNotifier {
       case DateFilterType.today:
         final now = DateTime.now();
         final startOfToday = DateTime(now.year, now.month, now.day);
-        tempConsultations = _allConsultations.where((c) => c.header.postingDate.isAfter(startOfToday)).toList();
+        tempConsultations = _allConsultations
+            .where((c) => c.header.postingDate.isAfter(startOfToday))
+            .toList();
         break;
       case DateFilterType.last7Days:
         final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
-        tempConsultations = _allConsultations.where((c) => c.header.postingDate.isAfter(sevenDaysAgo)).toList();
+        tempConsultations = _allConsultations
+            .where((c) => c.header.postingDate.isAfter(sevenDaysAgo))
+            .toList();
         break;
       case DateFilterType.thisMonth:
         final now = DateTime.now();
         final startOfMonth = DateTime(now.year, now.month, 1);
-        tempConsultations = _allConsultations.where((c) => c.header.postingDate.isAfter(startOfMonth)).toList();
+        tempConsultations = _allConsultations
+            .where((c) => c.header.postingDate.isAfter(startOfMonth))
+            .toList();
         break;
       case DateFilterType.custom:
         if (_customDateRange != null) {
@@ -88,7 +95,8 @@ class ConsultationProvider with ChangeNotifier {
           // Add one day to the end date to include the entire day
           final endDate = _customDateRange!.end.add(const Duration(days: 1));
           tempConsultations = _allConsultations.where((c) {
-            return c.header.postingDate.isAfter(startDate) && c.header.postingDate.isBefore(endDate);
+            return c.header.postingDate.isAfter(startDate) &&
+                c.header.postingDate.isBefore(endDate);
           }).toList();
         } else {
           tempConsultations = List.from(_allConsultations);
@@ -104,14 +112,14 @@ class ConsultationProvider with ChangeNotifier {
       tempConsultations = tempConsultations.where((consultation) {
         final header = consultation.header;
         return header.petName.toLowerCase().contains(_searchQuery) ||
-               header.customerName.toLowerCase().contains(_searchQuery) ||
-               header.phone.toLowerCase().contains(_searchQuery) ||
-               header.species.toLowerCase().contains(_searchQuery) ||
-               header.breed.toLowerCase().contains(_searchQuery) ||
-               header.historiesTreatment.toLowerCase().contains(_searchQuery);
+            header.customerName.toLowerCase().contains(_searchQuery) ||
+            header.phone.toLowerCase().contains(_searchQuery) ||
+            header.species.toLowerCase().contains(_searchQuery) ||
+            header.breed.toLowerCase().contains(_searchQuery) ||
+            header.historiesTreatment.toLowerCase().contains(_searchQuery);
       }).toList();
     }
-    
+
     _filteredConsultations = tempConsultations;
   }
 }

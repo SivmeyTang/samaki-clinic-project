@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:samaki_clinic/BackEnd/Model/PostProduct_Model.dart';
 import 'package:samaki_clinic/BackEnd/Model/Product_Model.dart';
 
-
 /// A custom exception class for more detailed API error feedback.
 class ApiException implements Exception {
   final String message;

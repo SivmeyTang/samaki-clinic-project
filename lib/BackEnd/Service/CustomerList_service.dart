@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:samaki_clinic/BackEnd/Model/CustomerList_Model.dart';
 
-
 class CustomerService {
   final String _baseUrl = "http://localhost:58691/api/Clinic";
 

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:samaki_clinic/BackEnd/Screens/CreateAppointmentScreen.dart';
+import 'package:samaki_clinic/BackEnd/Screens/Login_screen.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'footer.dart'; // Make sure to import the footer where the key is defined
 
@@ -94,17 +96,29 @@ class NavBar extends StatelessWidget {
                         _navItem(context, 'Home', '/', navFontSize),
                         _navItem(context, 'About us', '/about', navFontSize),
                         _navItem(context, 'Services', '/services', navFontSize),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          child: ClipOval(
-                            child: Image.asset(
-                              'assets/logo.jpg',
-                              height: logoSize,
-                              width: logoSize,
-                              fit: BoxFit.cover,
-                            ),
+                        // Wrap your Padding with an InkWell to make it tappable
+                    InkWell(
+                      onTap: () {
+                        // This is the navigator action 👆
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => LoginPage()),
+                        );
+                      },
+                      // This makes the tap ripple effect circular to match your image
+                      customBorder: const CircleBorder(), 
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/logo.jpg',
+                            height: logoSize, // Assuming 'logoSize' is defined
+                            width: logoSize,
+                            fit: BoxFit.cover,
                           ),
                         ),
+                      ),
+                    ),
                         _navItem(context, 'Pet Care', '/pet-care', navFontSize),
                         _navItem(context, 'Contact', '#footer', navFontSize),
                         const SizedBox(width: 10),

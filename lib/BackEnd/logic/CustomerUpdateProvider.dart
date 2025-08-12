@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:samaki_clinic/BackEnd/Model/customer_add_model.dart';
 import 'package:samaki_clinic/BackEnd/Service/CustomerUpdateService.dart';
 
-
 class CustomerUpdateProvider extends ChangeNotifier {
   final CustomerUpdateService _service = CustomerUpdateService();
   
